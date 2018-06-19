@@ -9,6 +9,7 @@ import java.util.List;
 
 import it.polito.tdp.formulaone.model.Driver;
 import it.polito.tdp.formulaone.model.DriverIdMap;
+import it.polito.tdp.formulaone.model.FantaPilota;
 import it.polito.tdp.formulaone.model.Season;
 
 public class FormulaOneDAO {
@@ -109,4 +110,59 @@ public class FormulaOneDAO {
 			throw new RuntimeException("SQL Query Error");
 		}
 	}
+
+	public List<FantaPilota> getFantaPiloti(int circuitId, Driver driver) {         //lista dei fantapiloti, ossia degli ANNI in cui quel pilota ha gareggiato in quel circuito
+		
+		//Query per ottenere la lista dei fantapiloti (YEAR)
+		String sql = "select distinct year from races, laptimes, circuits, drivers where circuits.circuitId = ? and drivers.driverId = ? " + 
+				"and laptimes.driverId = drivers.driverId and laptimes.raceId = races.raceId and races.circuitId = circuits.circuitId ";
+		
+		//Query per ottenere la lista dei laptimes
+		String sql2 = "select milliseconds from races, laptimes, circuits, drivers where circuits.circuitId = ? and drivers.driverId = ? " + 
+				"and laptimes.driverId = drivers.driverId and laptimes.raceId = races.raceId and races.circuitId = circuits.circuitId "
+				+ "and year = ? order by lap ";
+
+		try {
+			Connection conn = ConnectDB.getConnection();
+			PreparedStatement st = conn.prepareStatement(sql);
+		
+			st.setInt(1, circuitId);
+			st.setInt(2, driver.getDriverId());
+			ResultSet rs = st.executeQuery();
+
+			List<FantaPilota> results = new ArrayList<>();
+			while (rs.next()) {
+				int year = rs.getInt("year");
+				FantaPilota fp = new FantaPilota(year, new ArrayList<Integer>());
+				results.add(fp);
+			}
+
+			conn.close();
+			
+			for(FantaPilota fp : results) {
+				conn = ConnectDB.getConnection();
+				st = conn.prepareStatement(sql2);
+			
+				st.setInt(1, circuitId);
+				st.setInt(2, driver.getDriverId());
+				st.setInt(3, fp.getYear());
+				rs = st.executeQuery();
+	
+				List<Integer> laptimes = new ArrayList<>();
+				while (rs.next()) {
+					laptimes.add(rs.getInt("milliseconds"));
+				}
+	
+				conn.close();
+				fp.setLaptimes(laptimes);
+			}
+			
+			return results;
+			
+		} catch (SQLException e) {
+			e.printStackTrace();
+			throw new RuntimeException("SQL Query Error");
+		}
+	}
+	
 }
